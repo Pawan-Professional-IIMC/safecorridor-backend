@@ -7,6 +7,7 @@ from ..database import get_db
 router = APIRouter()
 
 @router.get("/", response_model=List[schemas.RoutePatternResponse])
+@router.get("", response_model=List[schemas.RoutePatternResponse], include_in_schema=False)
 def get_routes(
     origin_region: str = Query(..., description="E.g., UAE, Saudi Arabia"),
     destination_region: str = Query(..., description="E.g., India-South, US-East"),

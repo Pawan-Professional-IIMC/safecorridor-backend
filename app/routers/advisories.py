@@ -7,6 +7,7 @@ from ..database import get_db
 router = APIRouter()
 
 @router.get("/", response_model=List[schemas.AdvisoryResponse])
+@router.get("", response_model=List[schemas.AdvisoryResponse], include_in_schema=False)
 def get_advisories(
     airport_icao: Optional[str] = None,
     fir_code: Optional[str] = None,
