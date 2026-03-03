@@ -3,6 +3,8 @@ import logging
 import os
 import sys
 from datetime import datetime, timezone
+from urllib.parse import urlparse
+import httpx
 
 # Add the parent directory to sys.path so we can import app
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -45,16 +47,74 @@ NEWS_DOMAINS = {
     "travelandtourworld.com",
 }
 
+OFFICIAL_AIRPORT_DOMAINS = {
+    "OMDB": {"dubaiairports.ae"},
+    "OMDW": {"dubaiairports.ae"},
+    "OMAA": {"abudhabiairports.ae"},
+    "OMSJ": {"sharjahinternationalairport.com"},
+    "OTHH": {"dohahamadairport.com", "hamadairport.com"},
+    "OBBI": {"bahrainairport.bh"},
+    "OKBK": {"kuwaitairport.gov.kw"},
+    "OERK": {"kkia.sa", "riyadhairports.com"},
+    "OEJN": {"gaca.gov.sa", "jeddah-airport.com"},
+    "OEDF": {"dammamairports.com", "gaca.gov.sa"},
+    "OOMS": {"omanairports.co.om"},
+    "VIDP": {"newdelhiairport.in"},
+    "VABB": {"csmia.adaniairports.com"},
+    "LIRF": {"adr.it"},
+    "EDDM": {"munich-airport.com"},
+}
 
-def infer_source_fields(source_url: str | None, source_name: str | None):
+_redirect_cache: dict[str, str] = {}
+
+
+def resolve_final_url(url: str | None) -> str | None:
+    if not url:
+        return None
+    if url in _redirect_cache:
+        return _redirect_cache[url]
+    try:
+        with httpx.Client(follow_redirects=True, timeout=6.0) as client:
+            response = client.get(url)
+            final_url = str(response.url)
+            _redirect_cache[url] = final_url
+            return final_url
+    except Exception:
+        _redirect_cache[url] = url
+        return url
+
+
+def _is_news_domain(url: str | None) -> bool:
+    if not url:
+        return False
+    host = (urlparse(url).hostname or "").lower()
+    return any(host == d or host.endswith(f".{d}") for d in NEWS_DOMAINS)
+
+
+def _is_official_airport_domain(icao: str, url: str | None) -> bool:
+    if not url:
+        return False
+    host = (urlparse(url).hostname or "").lower()
+    allowed = OFFICIAL_AIRPORT_DOMAINS.get(icao, set())
+    return any(host == d or host.endswith(f".{d}") for d in allowed)
+
+
+def infer_source_fields(icao: str, source_url: str | None, source_name: str | None):
     normalized_name = (source_name or "").strip()
     source_type = models.AdvisorySourceType.AIRPORT
+    final_url = resolve_final_url(source_url)
 
-    if source_url:
+    if final_url and _is_news_domain(final_url):
+        source_type = models.AdvisorySourceType.MEDIA
+        normalized_name = "News"
+    elif source_url and _is_news_domain(source_url):
+        source_type = models.AdvisorySourceType.MEDIA
+        normalized_name = "News"
+    elif source_url and not _is_official_airport_domain(icao, source_url):
+        # If source is neither official airport domain nor explicit authority domain,
+        # treat it as media-style reference to reduce misleading "AIRPORT" labels.
         url_lower = source_url.lower()
-        domain_match = any(domain in url_lower for domain in NEWS_DOMAINS)
-        news_hint = "news" in url_lower or "article" in url_lower
-        if domain_match or news_hint:
+        if any(token in url_lower for token in ["news", "article", "story", "report"]):
             source_type = models.AdvisorySourceType.MEDIA
             normalized_name = "News"
 
@@ -83,6 +143,7 @@ def ingest_airports_from_file(path: str = "data/perplexity_airports.json"):
         return
 
     airports_data = data.get("airports", [])
+    official_updates = data.get("official_updates")
     if not airports_data:
         logger.warning(f"No 'airports' array found in {path}")
         return
@@ -130,7 +191,7 @@ def ingest_airports_from_file(path: str = "data/perplexity_airports.json"):
             advisory_title = f"Status update for {airport_display} ({icao})"
             source_url = item.get("status_source_url")
             summary = item.get("status_reason")
-            source_type, source_name = infer_source_fields(source_url, item.get("status_source_name"))
+            source_type, source_name = infer_source_fields(icao, source_url, item.get("status_source_name"))
             
             existing_advisory = db.query(models.Advisory).filter(
                 models.Advisory.title == advisory_title,
@@ -151,6 +212,24 @@ def ingest_airports_from_file(path: str = "data/perplexity_airports.json"):
                 existing_advisory.source_type = source_type
                 existing_advisory.source_name = source_name
                 existing_advisory.source_url = source_url
+
+        if official_updates and official_updates.get("summary"):
+            last_updated_raw = official_updates.get("last_updated_utc")
+            last_updated = None
+            if isinstance(last_updated_raw, str):
+                try:
+                    last_updated = datetime.fromisoformat(last_updated_raw.replace("Z", "+00:00"))
+                except ValueError:
+                    last_updated = None
+
+            cards = official_updates.get("cards", [])
+            db.add(
+                models.OfficialUpdateSnapshot(
+                    summary=official_updates["summary"],
+                    last_updated_utc=last_updated,
+                    cards=cards,
+                )
+            )
 
         db.commit()
         logger.info("Successfully ingested offline airport data and committed to the database.")

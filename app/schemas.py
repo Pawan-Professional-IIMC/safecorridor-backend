@@ -58,3 +58,22 @@ class AdvisoryResponse(AdvisoryBase):
     raw_payload: Optional[Any] = None
 
     model_config = {"from_attributes": True}
+
+
+class OfficialUpdateCard(BaseModel):
+    source_name: str
+    source_type: str
+    title: str
+    summary: str
+    url: Optional[str] = None
+    published_at_utc: Optional[datetime] = None
+
+
+class OfficialUpdateSnapshotResponse(BaseModel):
+    id: UUID4
+    summary: str
+    last_updated_utc: Optional[datetime] = None
+    cards: List[OfficialUpdateCard] = Field(default_factory=list)
+    created_at: datetime
+
+    model_config = {"from_attributes": True}

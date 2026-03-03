@@ -2,7 +2,7 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .database import Base, engine
-from .routers import airports, routes, advisories, admin
+from .routers import airports, routes, advisories, admin, official_updates
 
 Base.metadata.create_all(bind=engine)
 
@@ -27,6 +27,7 @@ app.add_middleware(
 app.include_router(airports.router, prefix="/api/airports", tags=["Airports"])
 app.include_router(routes.router, prefix="/api/routes", tags=["Routes"])
 app.include_router(advisories.router, prefix="/api/advisories", tags=["Advisories"])
+app.include_router(official_updates.router, prefix="/api/official-updates", tags=["Official Updates"])
 app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
 
 @app.get("/api/health")

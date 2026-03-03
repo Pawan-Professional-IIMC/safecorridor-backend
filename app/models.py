@@ -77,3 +77,13 @@ class Advisory(Base):
     airlines = Column(JSON, default=list)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     raw_payload = Column(JSON, nullable=True)
+
+
+class OfficialUpdateSnapshot(Base):
+    __tablename__ = "official_update_snapshots"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    summary = Column(Text, nullable=False)
+    last_updated_utc = Column(DateTime(timezone=True), nullable=True)
+    cards = Column(JSON, default=list)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
