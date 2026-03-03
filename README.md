@@ -21,6 +21,12 @@ FastAPI service for airport status, route patterns, and advisories.
   Example for PostgreSQL: `postgresql+psycopg2://user:password@host:5432/dbname`
 - `CORS_ALLOWED_ORIGINS`  
   Comma-separated frontend origins.
+- `APP_ENV`  
+  Use `production` in deployed environments.
+- `ADMIN_TOKEN`  
+  Required for admin endpoints in production (`X-Admin-Token` header).
+- `ENABLE_ADMIN_SEED`  
+  Keep `false` by default in production.
 
 ## Deploy Targets
 
