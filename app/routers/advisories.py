@@ -18,6 +18,7 @@ def get_advisories(
     db: Session = Depends(get_db)
 ):
     query = db.query(models.Advisory)
+    query = query.filter(models.Advisory.source_name != "SafeCorridor Seed Data")
     
     # Filtering ARRAY columns in PostgreSQL requires specific operators.
     if airport_icao:

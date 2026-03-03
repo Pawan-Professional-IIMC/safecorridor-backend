@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, status
 from sqlalchemy.orm import Session
 from .. import models, schemas
 from ..database import get_db
-from ..seed import seed_airports, seed_route_patterns, seed_advisories_from_airports
+from ..seed import seed_airports, seed_route_patterns
 
 router = APIRouter()
 
@@ -29,7 +29,7 @@ def seed_database(
     db: Session = Depends(get_db),
     admin_user: bool = Depends(get_admin_user)
 ):
-    """Seed the database with airports, route patterns, and advisories."""
+    """Seed the database with airports and route patterns."""
     if _is_production() and os.getenv("ENABLE_ADMIN_SEED", "false").lower() != "true":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -39,7 +39,6 @@ def seed_database(
     try:
         seed_airports(db)
         seed_route_patterns(db)
-        seed_advisories_from_airports(db)
         return {"status": "ok", "message": "Database seeded successfully"}
     except Exception as e:
         db.rollback()

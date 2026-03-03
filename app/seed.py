@@ -390,7 +390,6 @@ def main():
     try:
         seed_airports(db)
         seed_route_patterns(db)
-        seed_advisories_from_airports(db)
         print("Database seeded successfully.")
     except Exception as e:
         print(f"Error seeding database: {e}")
