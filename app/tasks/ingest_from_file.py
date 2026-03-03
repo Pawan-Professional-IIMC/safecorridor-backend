@@ -31,6 +31,38 @@ ICAO_METADATA = {
     "EDDM": {"iata": "MUC", "name": "Munich International Airport", "city": "Munich", "country": "Germany"},
 }
 
+NEWS_DOMAINS = {
+    "gulfnews.com",
+    "khaleejtimes.com",
+    "timesofindia.indiatimes.com",
+    "economictimes.indiatimes.com",
+    "dw.com",
+    "sundayguardianlive.com",
+    "visahq.com",
+    "thehindu.com",
+    "hindustantimes.com",
+    "indianeagle.com",
+    "travelandtourworld.com",
+}
+
+
+def infer_source_fields(source_url: str | None, source_name: str | None):
+    normalized_name = (source_name or "").strip()
+    source_type = models.AdvisorySourceType.AIRPORT
+
+    if source_url:
+        url_lower = source_url.lower()
+        domain_match = any(domain in url_lower for domain in NEWS_DOMAINS)
+        news_hint = "news" in url_lower or "article" in url_lower
+        if domain_match or news_hint:
+            source_type = models.AdvisorySourceType.MEDIA
+            normalized_name = "News"
+
+    if not normalized_name:
+        normalized_name = "Perplexity JSON Ingest"
+
+    return source_type, normalized_name
+
 
 def ingest_airports_from_file(path: str = "data/perplexity_airports.json"):
     """
@@ -98,6 +130,7 @@ def ingest_airports_from_file(path: str = "data/perplexity_airports.json"):
             advisory_title = f"Status update for {airport_display} ({icao})"
             source_url = item.get("status_source_url")
             summary = item.get("status_reason")
+            source_type, source_name = infer_source_fields(source_url, item.get("status_source_name"))
             
             existing_advisory = db.query(models.Advisory).filter(
                 models.Advisory.title == advisory_title,
@@ -106,14 +139,18 @@ def ingest_airports_from_file(path: str = "data/perplexity_airports.json"):
             
             if not existing_advisory:
                 advisory = models.Advisory(
-                    source_type=models.AdvisorySourceType.AIRPORT, 
-                    source_name=item.get("status_source_name", "Perplexity JSON Ingest"),
+                    source_type=source_type,
+                    source_name=source_name,
                     source_url=source_url,
                     title=advisory_title,
                     summary=summary,
                     airports_icao=[icao],
                 )
                 db.add(advisory)
+            else:
+                existing_advisory.source_type = source_type
+                existing_advisory.source_name = source_name
+                existing_advisory.source_url = source_url
 
         db.commit()
         logger.info("Successfully ingested offline airport data and committed to the database.")
