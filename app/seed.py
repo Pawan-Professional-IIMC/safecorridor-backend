@@ -11,6 +11,32 @@ from app import models
 
 
 def upsert_airport(db, icao, **kwargs):
+    legacy_status = kwargs.get("status")
+    if legacy_status and "airport_status" not in kwargs:
+        legacy_value = legacy_status.value if hasattr(legacy_status, "value") else str(legacy_status)
+        kwargs["airport_status"] = legacy_value
+        if "airspace_status" not in kwargs:
+            if legacy_value == models.StatusEnum.CLOSED.value:
+                kwargs["airspace_status"] = models.AirspaceStatusEnum.CLOSED.value
+            elif legacy_value == models.StatusEnum.RESTRICTED.value:
+                kwargs["airspace_status"] = models.AirspaceStatusEnum.RESTRICTED.value
+            elif legacy_value == models.StatusEnum.OPEN.value:
+                kwargs["airspace_status"] = models.AirspaceStatusEnum.OPEN.value
+            else:
+                kwargs["airspace_status"] = models.AirspaceStatusEnum.UNKNOWN.value
+        if "airline_operations" not in kwargs:
+            if kwargs["airspace_status"] == models.AirspaceStatusEnum.CLOSED.value:
+                kwargs["airline_operations"] = models.AirlineOperationsEnum.SUSPENDED.value
+            elif kwargs["airspace_status"] in {
+                models.AirspaceStatusEnum.RESTRICTED.value,
+                models.AirspaceStatusEnum.PARTIAL.value,
+            }:
+                kwargs["airline_operations"] = models.AirlineOperationsEnum.LIMITED.value
+            elif legacy_value == models.StatusEnum.OPEN.value:
+                kwargs["airline_operations"] = models.AirlineOperationsEnum.NORMAL.value
+            else:
+                kwargs["airline_operations"] = models.AirlineOperationsEnum.UNKNOWN.value
+
     obj = db.query(models.Airport).filter_by(icao=icao).first()
     if obj is None:
         obj = models.Airport(icao=icao, **kwargs)

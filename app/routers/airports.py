@@ -10,6 +10,8 @@ router = APIRouter()
 def get_airports_status(
     country: Optional[str] = None,
     status: Optional[models.StatusEnum] = None,
+    airspace_status: Optional[models.AirspaceStatusEnum] = None,
+    airline_operations: Optional[models.AirlineOperationsEnum] = None,
     is_hub: Optional[bool] = None,
     db: Session = Depends(get_db)
 ):
@@ -18,6 +20,10 @@ def get_airports_status(
         query = query.filter(models.Airport.country == country)
     if status is not None:
         query = query.filter(models.Airport.status == status)
+    if airspace_status is not None:
+        query = query.filter(models.Airport.airspace_status == airspace_status.value)
+    if airline_operations is not None:
+        query = query.filter(models.Airport.airline_operations == airline_operations.value)
     if is_hub is not None:
         query = query.filter(models.Airport.is_hub == is_hub)
     return query.all()

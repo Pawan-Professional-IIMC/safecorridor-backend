@@ -5,10 +5,12 @@ import logging
 from app.database import SessionLocal
 from app import models
 from app.perplexity_client import fetch_airport_status
+from app.db_migrations import ensure_airport_columns
 
 logger = logging.getLogger(__name__)
 
 async def refresh_core_airports():
+    ensure_airport_columns()
     db = SessionLocal()
     try:
         core_icaos = ["OMDB", "OMDW", "OMAA", "OMSJ", "OTHH", "OOMS", "VIDP", "VABB", "LIRF", "EDDM"]
@@ -32,10 +34,26 @@ async def refresh_core_airports():
                 "UNKNOWN": models.StatusEnum.UNKNOWN,
             }
             api_status = result.get("status", "UNKNOWN")
-            airport.status = status_map.get(api_status, models.StatusEnum.UNKNOWN)
+            status_value = api_status if api_status in status_map else "UNKNOWN"
+            airport.status = status_map.get(status_value, models.StatusEnum.UNKNOWN)
+            airport.airport_status = status_value
+            if status_value == models.StatusEnum.CLOSED.value:
+                airport.airspace_status = models.AirspaceStatusEnum.CLOSED.value
+                airport.airline_operations = models.AirlineOperationsEnum.SUSPENDED.value
+            elif status_value == models.StatusEnum.RESTRICTED.value:
+                airport.airspace_status = models.AirspaceStatusEnum.RESTRICTED.value
+                airport.airline_operations = models.AirlineOperationsEnum.LIMITED.value
+            elif status_value == models.StatusEnum.OPEN.value:
+                airport.airspace_status = models.AirspaceStatusEnum.OPEN.value
+                airport.airline_operations = models.AirlineOperationsEnum.NORMAL.value
+            else:
+                airport.airspace_status = models.AirspaceStatusEnum.UNKNOWN.value
+                airport.airline_operations = models.AirlineOperationsEnum.UNKNOWN.value
             airport.status_reason = result.get("status_reason")
             airport.status_source = result.get("status_source_url")
+            airport.status_source_name = result.get("status_source_name")
             airport.status_last_updated = datetime.now(timezone.utc)
+            airport.last_verified_utc = datetime.now(timezone.utc)
 
             # Insert an Advisory based off of the first piece of evidence
             evidence = result.get("evidence") or []
