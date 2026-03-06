@@ -35,12 +35,18 @@ def get_latest_snapshot(
     per_airport_limit: int,
     flight_status: str | None,
 ) -> models.FlightStatusSnapshot | None:
-    query = db.query(models.FlightStatusSnapshot).filter(
-        models.FlightStatusSnapshot.requested_airports == airport_codes,
-        models.FlightStatusSnapshot.per_airport_limit == per_airport_limit,
-        models.FlightStatusSnapshot.flight_status_filter == flight_status,
+    query = (
+        db.query(models.FlightStatusSnapshot)
+        .filter(
+            models.FlightStatusSnapshot.per_airport_limit == per_airport_limit,
+            models.FlightStatusSnapshot.flight_status_filter == flight_status,
+        )
+        .order_by(models.FlightStatusSnapshot.generated_at_utc.desc())
     )
-    return query.order_by(models.FlightStatusSnapshot.generated_at_utc.desc()).first()
+    for snapshot in query.limit(25).all():
+        if (snapshot.requested_airports or []) == airport_codes:
+            return snapshot
+    return None
 
 
 def serialize_snapshot(snapshot: models.FlightStatusSnapshot) -> FlightStatusSnapshotResponse:
