@@ -1,9 +1,17 @@
 import os
+import asyncio
+import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .database import Base, engine
 from .routers import airports, routes, advisories, admin, official_updates, flights
 from .db_migrations import ensure_airport_columns
+from .database import SessionLocal
+from .flight_snapshot_service import refresh_and_store_snapshot
+
+logger = logging.getLogger(__name__)
+FLIGHT_SNAPSHOT_REFRESH_ENABLED = os.getenv("FLIGHT_SNAPSHOT_REFRESH_ENABLED", "true").lower() == "true"
+FLIGHT_SNAPSHOT_REFRESH_INTERVAL_SECONDS = int(os.getenv("FLIGHT_SNAPSHOT_REFRESH_INTERVAL_SECONDS", "43200"))
 
 Base.metadata.create_all(bind=engine)
 ensure_airport_columns()
@@ -36,3 +44,28 @@ app.include_router(flights.router, prefix="/api/flights", tags=["Flights"])
 @app.get("/api/health")
 def read_root():
     return {"status": "ok", "service": "safecorridor-api"}
+
+
+async def _flight_snapshot_refresh_loop() -> None:
+    while True:
+        db = SessionLocal()
+        try:
+            await refresh_and_store_snapshot(db)
+        except Exception as exc:
+            logger.exception("Flight snapshot refresh failed: %s", exc)
+        finally:
+            db.close()
+        await asyncio.sleep(FLIGHT_SNAPSHOT_REFRESH_INTERVAL_SECONDS)
+
+
+@app.on_event("startup")
+async def start_background_tasks() -> None:
+    if FLIGHT_SNAPSHOT_REFRESH_ENABLED:
+        app.state.flight_snapshot_refresh_task = asyncio.create_task(_flight_snapshot_refresh_loop())
+
+
+@app.on_event("shutdown")
+async def stop_background_tasks() -> None:
+    task = getattr(app.state, "flight_snapshot_refresh_task", None)
+    if task is not None:
+        task.cancel()
