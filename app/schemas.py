@@ -111,6 +111,8 @@ class FlightStatusEntry(BaseModel):
     arrival_airport: Optional[str] = None
     arrival_iata: Optional[str] = None
     arrival_icao: Optional[str] = None
+    arrival_timezone: Optional[str] = None
+    destination_country: Optional[str] = None
     arrival_terminal: Optional[str] = None
     arrival_gate: Optional[str] = None
     arrival_baggage: Optional[str] = None
