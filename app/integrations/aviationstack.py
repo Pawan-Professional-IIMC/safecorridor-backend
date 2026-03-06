@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Iterable
 
 import httpx
+import pytz
 from dotenv import load_dotenv
 
 
@@ -20,6 +21,33 @@ _flight_cache_lock = asyncio.Lock()
 _api_key_rotation_lock = asyncio.Lock()
 _api_key_cursor = 0
 _api_key_cooldowns: dict[str, datetime] = {}
+_timezone_to_country_code = {
+    timezone_name: country_code
+    for country_code, timezone_names in pytz.country_timezones.items()
+    for timezone_name in timezone_names
+}
+_icao_prefix_to_country = {
+    "VA": "India",
+    "VE": "India",
+    "VI": "India",
+    "VO": "India",
+    "OP": "Pakistan",
+    "VC": "Sri Lanka",
+    "VV": "Vietnam",
+    "VT": "Thailand",
+    "WM": "Malaysia",
+    "RJ": "Jordan",
+    "LT": "Turkey",
+    "LG": "Greece",
+    "LQ": "Bosnia and Herzegovina",
+    "UB": "Azerbaijan",
+    "OE": "Saudi Arabia",
+    "OO": "Oman",
+    "OT": "Qatar",
+    "OK": "Kuwait",
+    "OB": "Bahrain",
+    "OM": "United Arab Emirates",
+}
 
 
 class AviationstackError(RuntimeError):
@@ -109,12 +137,31 @@ def _normalize_flight_status(value: str | None) -> str:
     return "unknown"
 
 
+def _destination_country_from_timezone(timezone_name: str | None) -> str | None:
+    if not timezone_name:
+        return None
+    country_code = _timezone_to_country_code.get(timezone_name)
+    if not country_code:
+        return None
+    return pytz.country_names.get(country_code)
+
+
+def _destination_country_from_icao(icao_code: str | None) -> str | None:
+    if not icao_code:
+        return None
+    return _icao_prefix_to_country.get(icao_code[:2].upper())
+
+
 def normalize_aviationstack_flight(item: dict, departure_airport_code: str) -> dict:
     departure = item.get("departure") or {}
     arrival = item.get("arrival") or {}
     airline = item.get("airline") or {}
     flight = item.get("flight") or {}
     live = item.get("live") or {}
+
+    destination_country = _destination_country_from_timezone(arrival.get("timezone"))
+    if not destination_country:
+        destination_country = _destination_country_from_icao(arrival.get("icao"))
 
     return {
         "provider": "aviationstack",
@@ -134,6 +181,8 @@ def normalize_aviationstack_flight(item: dict, departure_airport_code: str) -> d
         "arrival_airport": arrival.get("airport"),
         "arrival_iata": arrival.get("iata"),
         "arrival_icao": arrival.get("icao"),
+        "arrival_timezone": arrival.get("timezone"),
+        "destination_country": destination_country,
         "arrival_terminal": arrival.get("terminal"),
         "arrival_gate": arrival.get("gate"),
         "arrival_baggage": arrival.get("baggage"),
@@ -160,7 +209,7 @@ def normalize_aviationstack_flight(item: dict, departure_airport_code: str) -> d
 async def fetch_departures_for_airport(
     departure_airport_code: str,
     *,
-    limit: int = 10,
+    limit: int = 25,
     flight_status: str | None = None,
 ) -> list[dict]:
     cache_key = (departure_airport_code, limit, flight_status)
@@ -219,7 +268,7 @@ async def fetch_departures_for_airport(
 async def fetch_uae_departures(
     departure_airport_codes: Iterable[str] | None = None,
     *,
-    per_airport_limit: int = 10,
+    per_airport_limit: int = 25,
     flight_status: str | None = None,
 ) -> list[dict]:
     flights: list[dict] = []
