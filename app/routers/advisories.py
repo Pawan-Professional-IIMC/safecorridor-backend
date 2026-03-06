@@ -1,10 +1,16 @@
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy import cast, String
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from .. import models, schemas
 from ..database import get_db
 
 router = APIRouter()
+
+
+def _json_array_contains(column, value: str):
+    # JSON is stored as an array of strings; cast to text so the filter works on PostgreSQL and SQLite.
+    return cast(column, String).like(f'%"{value}"%')
 
 @router.get("/", response_model=List[schemas.AdvisoryResponse])
 @router.get("", response_model=List[schemas.AdvisoryResponse], include_in_schema=False)
@@ -20,13 +26,12 @@ def get_advisories(
     query = db.query(models.Advisory)
     query = query.filter(models.Advisory.source_name != "SafeCorridor Seed Data")
     
-    # Filtering ARRAY columns in PostgreSQL requires specific operators.
     if airport_icao:
-        query = query.filter(models.Advisory.airports_icao.contains([airport_icao]))
+        query = query.filter(_json_array_contains(models.Advisory.airports_icao, airport_icao))
     if fir_code:
-        query = query.filter(models.Advisory.fir_codes.contains([fir_code]))
+        query = query.filter(_json_array_contains(models.Advisory.fir_codes, fir_code))
     if airline:
-        query = query.filter(models.Advisory.airlines.contains([airline]))
+        query = query.filter(_json_array_contains(models.Advisory.airlines, airline))
     if source_type:
         query = query.filter(models.Advisory.source_type == source_type)
         
