@@ -164,6 +164,23 @@ class LiveChatResponse(BaseModel):
     timestamp_utc: datetime
 
 
+class LiveTtsRequest(BaseModel):
+    text: str
+    target_language_code: str = "en-IN"
+    speaker: Optional[str] = "Shubh"
+    pace: Optional[float] = Field(default=1.0, ge=0.5, le=2.0)
+    speech_sample_rate: Optional[int] = 24000
+    model: Optional[str] = "bulbul:v3"
+    temperature: Optional[float] = Field(default=0.6, ge=0.01, le=2.0)
+
+
+class LiveTtsResponse(BaseModel):
+    request_id: Optional[str] = None
+    audio_base64: str
+    content_type: str = "audio/wav"
+    provider: str = "sarvam"
+
+
 class LiveRouteRequest(BaseModel):
     origin_region: str
     destination_region: str
