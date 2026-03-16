@@ -14,7 +14,7 @@ AVIATIONSTACK_BASE_URL = os.getenv("AVIATIONSTACK_BASE_URL", "https://api.aviati
 AVIATIONSTACK_CACHE_TTL_SECONDS = int(os.getenv("AVIATIONSTACK_CACHE_TTL_SECONDS", "300"))
 AVIATIONSTACK_KEY_COOLDOWN_SECONDS = int(os.getenv("AVIATIONSTACK_KEY_COOLDOWN_SECONDS", "1800"))
 
-DEFAULT_UAE_DEPARTURE_AIRPORTS = ("DXB", "DWC", "AUH", "SHJ")
+DEFAULT_GCC_DEPARTURE_AIRPORTS = ("DXB", "DWC", "AUH", "SHJ", "RUH", "JED", "DOH", "MCT", "KWI", "BAH")
 
 _flight_cache: dict[tuple[str, int, str | None], dict] = {}
 _flight_cache_lock = asyncio.Lock()
@@ -79,6 +79,30 @@ def _is_retryable_key_error(error: dict) -> bool:
         "inactive_user",
     )
     return any(marker in message for marker in retry_markers)
+
+
+def _get_error_message(payload: dict | None, response: httpx.Response | None = None) -> str:
+    error = (payload or {}).get("error") or {}
+    if isinstance(error, dict):
+        message = error.get("message") or error.get("type")
+        if message:
+            return str(message)
+
+    if response is not None:
+        return f"Aviationstack request failed with status {response.status_code}."
+
+    return "Aviationstack request failed."
+
+
+def _should_retry_key(response: httpx.Response | None, payload: dict | None) -> bool:
+    if response is not None and response.status_code in {401, 403, 429}:
+        return True
+
+    error = (payload or {}).get("error")
+    if isinstance(error, dict):
+        return _is_retryable_key_error(error)
+
+    return False
 
 
 async def _get_candidate_api_keys() -> list[str]:
@@ -235,20 +259,29 @@ async def fetch_departures_for_airport(
                 params["flight_status"] = flight_status
 
             response = await client.get(f"{AVIATIONSTACK_BASE_URL}/flights", params=params)
-            response.raise_for_status()
-            payload = response.json()
+            try:
+                payload = response.json()
+            except ValueError:
+                payload = None
 
-            error = payload.get("error")
-            if error:
-                last_error = error.get("message") or error.get("type") or "Aviationstack request failed."
-                if len(candidate_keys) > 1 and _is_retryable_key_error(error):
+            if response.is_error:
+                last_error = _get_error_message(payload, response)
+                if len(candidate_keys) > 1 and _should_retry_key(response, payload):
+                    await _mark_key_cooldown(api_key)
+                    continue
+                raise AviationstackError(last_error)
+
+            error = (payload or {}).get("error")
+            if isinstance(error, dict):
+                last_error = _get_error_message(payload, response)
+                if len(candidate_keys) > 1 and _should_retry_key(response, payload):
                     await _mark_key_cooldown(api_key)
                     continue
                 raise AviationstackError(last_error)
 
             normalized_flights = [
                 normalize_aviationstack_flight(item, departure_airport_code)
-                for item in payload.get("data", [])
+                for item in (payload or {}).get("data", [])
             ]
             break
 
@@ -265,14 +298,14 @@ async def fetch_departures_for_airport(
     return normalized_flights
 
 
-async def fetch_uae_departures(
+async def fetch_gcc_departures(
     departure_airport_codes: Iterable[str] | None = None,
     *,
     per_airport_limit: int = 50,
     flight_status: str | None = None,
 ) -> list[dict]:
     flights: list[dict] = []
-    for airport_code in departure_airport_codes or DEFAULT_UAE_DEPARTURE_AIRPORTS:
+    for airport_code in departure_airport_codes or DEFAULT_GCC_DEPARTURE_AIRPORTS:
         flights.extend(
             await fetch_departures_for_airport(
                 airport_code.strip().upper(),

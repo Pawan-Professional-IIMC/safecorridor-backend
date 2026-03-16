@@ -7,7 +7,7 @@ from ..database import get_db
 from ..flight_snapshot_service import get_latest_snapshot, refresh_and_store_snapshot, serialize_snapshot
 from ..integrations.aviationstack import (
     AviationstackError,
-    DEFAULT_UAE_DEPARTURE_AIRPORTS,
+    DEFAULT_GCC_DEPARTURE_AIRPORTS,
 )
 from ..schemas import FlightStatusSnapshotResponse
 
@@ -18,8 +18,8 @@ router = APIRouter()
 @router.get("/status", response_model=FlightStatusSnapshotResponse)
 async def get_flight_status(
     airports: Optional[str] = Query(
-        default=",".join(DEFAULT_UAE_DEPARTURE_AIRPORTS),
-        description="Comma-separated UAE departure airport IATA codes, e.g. DXB,AUH,SHJ",
+        default=",".join(DEFAULT_GCC_DEPARTURE_AIRPORTS),
+        description="Comma-separated GCC departure airport IATA codes, e.g. DXB,AUH,DOH,MCT",
     ),
     per_airport_limit: int = Query(default=50, ge=1, le=50),
     flight_status: Optional[str] = Query(default=None),
@@ -28,7 +28,7 @@ async def get_flight_status(
 ):
     airport_codes = [code.strip().upper() for code in (airports or "").split(",") if code.strip()]
     if not airport_codes:
-        airport_codes = list(DEFAULT_UAE_DEPARTURE_AIRPORTS)
+        airport_codes = list(DEFAULT_GCC_DEPARTURE_AIRPORTS)
 
     snapshot = None if force_refresh else get_latest_snapshot(db, airport_codes, per_airport_limit, flight_status)
     if snapshot is not None:
