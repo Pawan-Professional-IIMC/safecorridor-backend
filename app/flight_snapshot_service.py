@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 
 from . import models
-from .integrations.aviationstack import DEFAULT_UAE_DEPARTURE_AIRPORTS, fetch_uae_departures
+from .integrations.aviationstack import DEFAULT_GCC_DEPARTURE_AIRPORTS, fetch_gcc_departures
 from .schemas import FlightStatusSnapshotResponse
 
 
@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_FLIGHT_REFRESH_AIRPORTS = tuple(
     code.strip().upper()
-    for code in os.getenv("FLIGHT_SNAPSHOT_AIRPORTS", ",".join(DEFAULT_UAE_DEPARTURE_AIRPORTS)).split(",")
+    for code in os.getenv("FLIGHT_SNAPSHOT_AIRPORTS", ",".join(DEFAULT_GCC_DEPARTURE_AIRPORTS)).split(",")
     if code.strip()
 )
 DEFAULT_FLIGHT_REFRESH_LIMIT = int(os.getenv("FLIGHT_SNAPSHOT_PER_AIRPORT_LIMIT", "50"))
@@ -68,7 +68,7 @@ async def refresh_and_store_snapshot(
     flight_status: str | None = None,
 ) -> models.FlightStatusSnapshot:
     requested_airports = airport_codes or list(DEFAULT_FLIGHT_REFRESH_AIRPORTS)
-    flights = await fetch_uae_departures(
+    flights = await fetch_gcc_departures(
         requested_airports,
         per_airport_limit=per_airport_limit,
         flight_status=flight_status,
