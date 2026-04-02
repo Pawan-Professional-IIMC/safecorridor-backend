@@ -151,7 +151,7 @@ def seed_airports(db):
         status_last_updated=now,
     )
 
-    # --- India hubs (open; rerouting around Middle East) ---
+    # --- India major hubs (open; rerouting around Middle East) ---
     upsert_airport(
         db,
         icao="VIDP",
@@ -182,6 +182,108 @@ def seed_airports(db):
             "Middle East airspace."
         ),
         status_source="https://www.indianeagle.com/travelbeats/usa-india-flights-rerouted-bypassing-iranian-airspace/",
+        status_last_updated=now,
+    )
+
+    upsert_airport(
+        db,
+        icao="VOBL",
+        iata="BLR",
+        name="Kempegowda International Airport",
+        city="Bengaluru",
+        country="India",
+        is_hub=True,
+        status=models.StatusEnum.OPEN,
+        status_reason=(
+            "Bengaluru remains operational; India international flights are being rerouted around "
+            "restricted Middle East airspace with schedule adjustments."
+        ),
+        status_source="https://www.airindia.com/in/en/news-update.html",
+        status_last_updated=now,
+    )
+
+    upsert_airport(
+        db,
+        icao="VOHS",
+        iata="HYD",
+        name="Rajiv Gandhi International Airport",
+        city="Hyderabad",
+        country="India",
+        is_hub=True,
+        status=models.StatusEnum.OPEN,
+        status_reason=(
+            "Hyderabad remains operational; India international flights are being rerouted around "
+            "restricted Middle East airspace with schedule adjustments."
+        ),
+        status_source="https://www.airindia.com/in/en/news-update.html",
+        status_last_updated=now,
+    )
+
+    upsert_airport(
+        db,
+        icao="VOMM",
+        iata="MAA",
+        name="Chennai International Airport",
+        city="Chennai",
+        country="India",
+        is_hub=True,
+        status=models.StatusEnum.OPEN,
+        status_reason=(
+            "Chennai remains operational; India international flights are being rerouted around "
+            "restricted Middle East airspace with schedule adjustments."
+        ),
+        status_source="https://www.airindia.com/in/en/news-update.html",
+        status_last_updated=now,
+    )
+
+    upsert_airport(
+        db,
+        icao="VECC",
+        iata="CCU",
+        name="Netaji Subhas Chandra Bose International Airport",
+        city="Kolkata",
+        country="India",
+        is_hub=True,
+        status=models.StatusEnum.OPEN,
+        status_reason=(
+            "Kolkata remains operational; India international flights are being rerouted around "
+            "restricted Middle East airspace with schedule adjustments."
+        ),
+        status_source="https://www.airindia.com/in/en/news-update.html",
+        status_last_updated=now,
+    )
+
+    upsert_airport(
+        db,
+        icao="VAAH",
+        iata="AMD",
+        name="Sardar Vallabhbhai Patel International Airport",
+        city="Ahmedabad",
+        country="India",
+        is_hub=True,
+        status=models.StatusEnum.OPEN,
+        status_reason=(
+            "Ahmedabad remains operational; India international flights are being rerouted around "
+            "restricted Middle East airspace with schedule adjustments."
+        ),
+        status_source="https://www.airindia.com/in/en/news-update.html",
+        status_last_updated=now,
+    )
+
+    upsert_airport(
+        db,
+        icao="VOCI",
+        iata="COK",
+        name="Cochin International Airport",
+        city="Kochi",
+        country="India",
+        is_hub=True,
+        status=models.StatusEnum.OPEN,
+        status_reason=(
+            "Kochi remains operational; India international flights are being rerouted around "
+            "restricted Middle East airspace with schedule adjustments."
+        ),
+        status_source="https://www.airindia.com/in/en/news-update.html",
         status_last_updated=now,
     )
 

@@ -4,8 +4,7 @@ import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .database import Base, engine
-from .routers import airports, routes, advisories, admin, official_updates, flights
-from .db_migrations import ensure_airport_columns
+from .routers import flights
 from .database import SessionLocal
 from .flight_snapshot_service import refresh_and_store_snapshot
 
@@ -14,11 +13,10 @@ FLIGHT_SNAPSHOT_REFRESH_ENABLED = os.getenv("FLIGHT_SNAPSHOT_REFRESH_ENABLED", "
 FLIGHT_SNAPSHOT_REFRESH_INTERVAL_SECONDS = int(os.getenv("FLIGHT_SNAPSHOT_REFRESH_INTERVAL_SECONDS", "43200"))
 
 Base.metadata.create_all(bind=engine)
-ensure_airport_columns()
 
 app = FastAPI(
     title="SafeCorridor API",
-    description="API for finding plausible air routes during Gulf airspace closures.",
+    description="API for GCC flight status.",
     version="1.0.0"
 )
 
@@ -34,11 +32,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(airports.router, prefix="/api/airports", tags=["Airports"])
-app.include_router(routes.router, prefix="/api/routes", tags=["Routes"])
-app.include_router(advisories.router, prefix="/api/advisories", tags=["Advisories"])
-app.include_router(official_updates.router, prefix="/api/official-updates", tags=["Official Updates"])
-app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
 app.include_router(flights.router, prefix="/api/flights", tags=["Flights"])
 
 @app.get("/api/health")

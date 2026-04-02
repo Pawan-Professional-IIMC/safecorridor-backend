@@ -32,3 +32,12 @@ FastAPI service for airport status, route patterns, and advisories.
 
 - Fly.io: `fly.toml` + `Dockerfile`
 - Railway: `railway.toml` + `Dockerfile`
+
+### No-GCP Setup
+
+The current code does not require Google Cloud at runtime. The browser handles voice input/output locally, and the backend only needs a reachable HTTP deployment target.
+
+For a no-card path:
+
+- Run the backend locally or deploy it to a free host
+- Keep the frontend on local Next.js or any static/Node-friendly host
